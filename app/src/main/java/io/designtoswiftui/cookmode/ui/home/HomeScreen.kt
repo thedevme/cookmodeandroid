@@ -8,8 +8,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,17 +38,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.Bolt
-import androidx.compose.material.icons.outlined.Eco
-import androidx.compose.material.icons.outlined.LocalCafe
-import androidx.compose.material.icons.outlined.LocalDining
-import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.Restaurant
-import androidx.compose.material.icons.outlined.RestaurantMenu
-import androidx.compose.material.icons.outlined.RiceBowl
-import androidx.compose.material.icons.outlined.SoupKitchen
-import androidx.compose.material.icons.outlined.Timer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -55,15 +48,18 @@ import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -72,9 +68,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import io.designtoswiftui.cookmode.models.Recipe
+import io.designtoswiftui.cookmode.models.RecipeIcon
 import io.designtoswiftui.cookmode.viewmodels.HomeViewModel
 
-// Color palette - Industrial warmth (matching CookingScreen)
+// Color palette - Industrial warmth
 private val BackgroundDark = Color(0xFF0D0D0D)
 private val SurfaceDark = Color(0xFF1A1A1A)
 private val SurfaceLight = Color(0xFF2A2A2A)
@@ -85,50 +82,6 @@ private val TextSecondary = Color(0xFF9E9E9E)
 private val TextMuted = Color(0xFF616161)
 private val DangerRed = Color(0xFFCF6679)
 
-// Recipe icon mapping based on title keywords
-private fun getRecipeIcon(title: String): ImageVector {
-    val lowerTitle = title.lowercase()
-    return when {
-        // Quick/Fast recipes
-        lowerTitle.contains("quick") || lowerTitle.contains("fast") || lowerTitle.contains("easy") -> Icons.Outlined.Bolt
-
-        // Healthy/Vegetarian recipes
-        lowerTitle.contains("salad") || lowerTitle.contains("healthy") || lowerTitle.contains("vegan") ||
-        lowerTitle.contains("vegetarian") || lowerTitle.contains("green") -> Icons.Outlined.Eco
-
-        // Soups and stews
-        lowerTitle.contains("soup") || lowerTitle.contains("stew") || lowerTitle.contains("broth") ||
-        lowerTitle.contains("chowder") -> Icons.Outlined.SoupKitchen
-
-        // Grilled/BBQ/Spicy
-        lowerTitle.contains("grill") || lowerTitle.contains("bbq") || lowerTitle.contains("spicy") ||
-        lowerTitle.contains("hot") || lowerTitle.contains("fire") -> Icons.Outlined.LocalFireDepartment
-
-        // Asian/Rice dishes
-        lowerTitle.contains("rice") || lowerTitle.contains("asian") || lowerTitle.contains("chinese") ||
-        lowerTitle.contains("japanese") || lowerTitle.contains("korean") || lowerTitle.contains("thai") ||
-        lowerTitle.contains("sushi") || lowerTitle.contains("curry") -> Icons.Outlined.RiceBowl
-
-        // Coffee/Drinks
-        lowerTitle.contains("coffee") || lowerTitle.contains("tea") || lowerTitle.contains("drink") ||
-        lowerTitle.contains("smoothie") || lowerTitle.contains("latte") -> Icons.Outlined.LocalCafe
-
-        // Timed recipes (baking, slow cook)
-        lowerTitle.contains("bake") || lowerTitle.contains("slow") || lowerTitle.contains("roast") ||
-        lowerTitle.contains("oven") -> Icons.Outlined.Timer
-
-        // Fancy/Special occasion
-        lowerTitle.contains("special") || lowerTitle.contains("fancy") || lowerTitle.contains("gourmet") ||
-        lowerTitle.contains("dinner") || lowerTitle.contains("party") -> Icons.Outlined.RestaurantMenu
-
-        // Pasta/Italian
-        lowerTitle.contains("pasta") || lowerTitle.contains("italian") || lowerTitle.contains("pizza") ||
-        lowerTitle.contains("spaghetti") -> Icons.Outlined.LocalDining
-
-        // Default: generic restaurant icon
-        else -> Icons.Outlined.Restaurant
-    }
-}
 
 @Composable
 fun HomeScreen(
@@ -139,7 +92,7 @@ fun HomeScreen(
 ) {
     val recipes by viewModel.recipes.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
-    val recipeCount by viewModel.recipeCount.collectAsState()
+    var isSearching by remember { mutableStateOf(false) }
 
     val isEmpty = recipes.isEmpty() && searchQuery.isEmpty()
     val hasNoResults = recipes.isEmpty() && searchQuery.isNotEmpty()
@@ -147,36 +100,37 @@ fun HomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        BackgroundDark,
-                        Color(0xFF0A0A0A)
-                    )
-                )
-            )
+            .background(BackgroundDark)
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Header
-            Header(recipeCount = recipeCount)
-
-            // Search bar
-            SearchBar(
-                query = searchQuery,
-                onQueryChange = { viewModel.updateSearchQuery(it) },
-                onClear = { viewModel.clearSearch() }
+            // Top Bar
+            TopBar(
+                isSearching = isSearching,
+                searchQuery = searchQuery,
+                onSearchClick = { isSearching = true },
+                onSearchQueryChange = { viewModel.updateSearchQuery(it) },
+                onCloseSearch = {
+                    isSearching = false
+                    viewModel.clearSearch()
+                }
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            // Divider line
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(SurfaceLight.copy(alpha = 0.5f))
+            )
 
             // Content
             when {
                 isEmpty -> {
-                    EmptyState(onAddRecipe = onAddRecipe)
+                    EmptyState()
                 }
                 hasNoResults -> {
                     NoResultsState(query = searchQuery)
@@ -193,125 +147,95 @@ fun HomeScreen(
             }
         }
 
-        // FAB
-        AnimatedVisibility(
-            visible = !isEmpty,
-            enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
-            exit = fadeOut(),
+        // FAB - always visible
+        FloatingActionButton(
+            onClick = onAddRecipe,
+            containerColor = AccentAmber,
+            contentColor = BackgroundDark,
+            shape = CircleShape,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(24.dp)
+                .size(64.dp)
         ) {
-            FloatingActionButton(
-                onClick = onAddRecipe,
-                containerColor = AccentAmber,
-                contentColor = BackgroundDark,
-                shape = CircleShape,
-                modifier = Modifier.size(64.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Add recipe",
-                    modifier = Modifier.size(28.dp)
-                )
-            }
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Add recipe",
+                modifier = Modifier.size(28.dp)
+            )
         }
     }
 }
 
 @Composable
-private fun Header(recipeCount: Int) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 16.dp)
-    ) {
-        Text(
-            text = "CookMode",
-            color = TextPrimary,
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = (-1).sp
-        )
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Text(
-            text = if (recipeCount == 0) "No recipes yet"
-            else "$recipeCount recipe${if (recipeCount != 1) "s" else ""}",
-            color = TextMuted,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            letterSpacing = 1.sp
-        )
-    }
-}
-
-@Composable
-private fun SearchBar(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    onClear: () -> Unit
+private fun TopBar(
+    isSearching: Boolean,
+    searchQuery: String,
+    onSearchClick: () -> Unit,
+    onSearchQueryChange: (String) -> Unit,
+    onCloseSearch: () -> Unit
 ) {
-    Box(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(SurfaceDark)
-            .padding(horizontal = 16.dp, vertical = 14.dp)
+            .height(56.dp)
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(
-                imageVector = Icons.Default.Search,
-                contentDescription = null,
-                tint = TextMuted,
-                modifier = Modifier.size(20.dp)
-            )
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Box(modifier = Modifier.weight(1f)) {
-                if (query.isEmpty()) {
-                    Text(
-                        text = "Search recipes...",
-                        color = TextMuted,
-                        fontSize = 16.sp
-                    )
-                }
-
-                BasicTextField(
-                    value = query,
-                    onValueChange = onQueryChange,
-                    textStyle = TextStyle(
-                        color = TextPrimary,
-                        fontSize = 16.sp
-                    ),
-                    singleLine = true,
-                    cursorBrush = SolidColor(AccentAmber),
-                    modifier = Modifier.fillMaxWidth()
+        if (isSearching) {
+            // Search mode
+            IconButton(onClick = onCloseSearch) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Close search",
+                    tint = TextPrimary
                 )
             }
 
-            AnimatedVisibility(
-                visible = query.isNotEmpty(),
-                enter = fadeIn() + scaleIn(),
-                exit = fadeOut()
-            ) {
-                IconButton(
-                    onClick = onClear,
-                    modifier = Modifier.size(24.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Clear search",
-                        tint = TextSecondary,
-                        modifier = Modifier.size(18.dp)
-                    )
+            BasicTextField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChange,
+                textStyle = TextStyle(
+                    color = TextPrimary,
+                    fontSize = 18.sp
+                ),
+                singleLine = true,
+                cursorBrush = SolidColor(AccentAmber),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 8.dp),
+                decorationBox = { innerTextField ->
+                    Box {
+                        if (searchQuery.isEmpty()) {
+                            Text(
+                                text = "Search recipes...",
+                                color = TextMuted,
+                                fontSize = 18.sp
+                            )
+                        }
+                        innerTextField()
+                    }
                 }
+            )
+        } else {
+            // Normal mode
+            Spacer(modifier = Modifier.width(48.dp))
+
+            Text(
+                text = "My Recipes",
+                color = TextPrimary,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center
+            )
+
+            IconButton(onClick = onSearchClick) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search",
+                    tint = TextPrimary
+                )
             }
         }
     }
@@ -328,9 +252,20 @@ private fun RecipeList(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 100.dp)
     ) {
+        // Section header
+        item {
+            Text(
+                text = "RECENT RECIPES",
+                color = TextMuted,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 1.5.sp,
+                modifier = Modifier.padding(start = 8.dp, bottom = 16.dp)
+            )
+        }
+
         itemsIndexed(
             items = recipes,
             key = { _, recipe -> recipe.id }
@@ -400,15 +335,13 @@ private fun RecipeList(
                     )
                 }
             }
-        }
 
-        // Bottom spacing for FAB
-        item {
-            Spacer(modifier = Modifier.height(80.dp))
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RecipeCard(
     recipe: Recipe,
@@ -418,25 +351,28 @@ private fun RecipeCard(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(SurfaceDark)
-            .clickable(onClick = onClick)
-            .padding(16.dp),
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
+            .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Recipe icon
+        // Icon container
         Box(
             modifier = Modifier
-                .size(52.dp)
+                .size(56.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(AccentAmberDim.copy(alpha = 0.25f)),
+                .background(SurfaceLight),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = getRecipeIcon(recipe.title),
+            Image(
+                painter = painterResource(id = RecipeIcon.fromKey(recipe.iconName).drawableRes),
                 contentDescription = null,
-                tint = AccentAmber,
-                modifier = Modifier.size(26.dp)
+                colorFilter = ColorFilter.tint(AccentAmber),
+                modifier = Modifier.size(28.dp)
             )
         }
 
@@ -449,49 +385,19 @@ private fun RecipeCard(
             Text(
                 text = recipe.title,
                 color = TextPrimary,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (recipe.prepTime > 0) {
-                    Text(
-                        text = "${recipe.prepTime} min",
-                        color = AccentAmber,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-
-                    if (recipe.servings > 0) {
-                        Text(
-                            text = " · ",
-                            color = TextMuted,
-                            fontSize = 13.sp
-                        )
-                    }
-                }
-
-                if (recipe.servings > 0) {
-                    Text(
-                        text = "${recipe.servings} serving${if (recipe.servings != 1) "s" else ""}",
-                        color = TextSecondary,
-                        fontSize = 13.sp
-                    )
-                }
-
-                if (recipe.prepTime == 0 && recipe.servings == 0) {
-                    Text(
-                        text = "Tap to cook",
-                        color = TextMuted,
-                        fontSize = 13.sp
-                    )
-                }
+            if (recipe.prepTime > 0) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "${recipe.prepTime} mins",
+                    color = TextMuted,
+                    fontSize = 14.sp
+                )
             }
         }
 
@@ -506,7 +412,7 @@ private fun RecipeCard(
 }
 
 @Composable
-private fun EmptyState(onAddRecipe: () -> Unit) {
+private fun EmptyState() {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -514,16 +420,17 @@ private fun EmptyState(onAddRecipe: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Large cooking pot emoji
-        Text(
-            text = "🍳",
-            fontSize = 72.sp
+        Icon(
+            imageVector = Icons.Outlined.Restaurant,
+            contentDescription = null,
+            tint = AccentAmberDim,
+            modifier = Modifier.size(72.dp)
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text = "Add your first recipe",
+            text = "No recipes yet",
             color = TextPrimary,
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
@@ -533,42 +440,11 @@ private fun EmptyState(onAddRecipe: () -> Unit) {
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Your recipes will appear here.\nTap the button below to get started.",
+            text = "Tap the + button to add your first recipe",
             color = TextSecondary,
             fontSize = 16.sp,
-            textAlign = TextAlign.Center,
-            lineHeight = 24.sp
+            textAlign = TextAlign.Center
         )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // Add recipe button
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(16.dp))
-                .background(AccentAmber)
-                .clickable(onClick = onAddRecipe)
-                .padding(horizontal = 32.dp, vertical = 16.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = null,
-                    tint = BackgroundDark,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "ADD RECIPE",
-                    color = BackgroundDark,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp
-                )
-            }
-        }
     }
 }
 
@@ -581,9 +457,11 @@ private fun NoResultsState(query: String) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            text = "🔍",
-            fontSize = 56.sp
+        Icon(
+            imageVector = Icons.Default.Search,
+            contentDescription = null,
+            tint = TextMuted,
+            modifier = Modifier.size(56.dp)
         )
 
         Spacer(modifier = Modifier.height(24.dp))

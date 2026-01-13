@@ -1,13 +1,8 @@
 package io.designtoswiftui.cookmode.ui.recipe
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,20 +18,20 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.outlined.ContentPaste
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -53,8 +48,6 @@ private val AccentAmberDim = Color(0xFF6B4D23)
 private val TextPrimary = Color(0xFFF5F5F5)
 private val TextSecondary = Color(0xFF9E9E9E)
 private val TextMuted = Color(0xFF616161)
-private val ProGold = Color(0xFFFFD700)
-private val ProGoldDim = Color(0xFF8B7500)
 
 @Composable
 fun AddRecipeMethodScreen(
@@ -67,40 +60,57 @@ fun AddRecipeMethodScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        BackgroundDark,
-                        Color(0xFF0A0A0A)
-                    )
-                )
-            )
+            .background(BackgroundDark)
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Top bar
-            TopBar(onBackClick = onBackClick)
+            // Top bar with centered title
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBackClick) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        contentDescription = "Back",
+                        tint = TextPrimary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
 
-            // Header
-            HeaderSection()
+                Text(
+                    text = "Add Recipe",
+                    color = TextPrimary,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
 
-            Spacer(modifier = Modifier.height(32.dp))
+                // Spacer for symmetry
+                Spacer(modifier = Modifier.size(48.dp))
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
 
             // Method cards
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Manual Entry Card
                 MethodCard(
-                    icon = Icons.Outlined.Edit,
+                    icon = Icons.Outlined.EditNote,
                     title = "Manual Entry",
-                    description = "Create a recipe from scratch with step-by-step instructions",
+                    description = "Type steps yourself",
+                    showChevron = true,
                     onClick = onManualEntry
                 )
 
@@ -108,7 +118,7 @@ fun AddRecipeMethodScreen(
                 MethodCard(
                     icon = Icons.Outlined.ContentPaste,
                     title = "Paste from Clipboard",
-                    description = "Paste recipe text and automatically parse it into steps",
+                    description = "Paste recipe text and auto-split steps",
                     isPro = true,
                     isLocked = !isPro,
                     onClick = {
@@ -120,52 +130,30 @@ fun AddRecipeMethodScreen(
                     }
                 )
             }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Save Recipe button at bottom
+            Button(
+                onClick = onManualEntry,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 24.dp)
+                    .height(56.dp),
+                shape = RoundedCornerShape(28.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = AccentAmber
+                )
+            ) {
+                Text(
+                    text = "Save Recipe",
+                    color = BackgroundDark,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
-    }
-}
-
-@Composable
-private fun TopBar(onBackClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = onBackClick) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
-                tint = TextPrimary,
-                modifier = Modifier.size(24.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun HeaderSection() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp)
-    ) {
-        Text(
-            text = "Add Recipe",
-            color = TextPrimary,
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = (-1).sp
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "Choose how you'd like to add your recipe",
-            color = TextSecondary,
-            fontSize = 16.sp,
-            lineHeight = 24.sp
-        )
     }
 }
 
@@ -176,98 +164,93 @@ private fun MethodCard(
     description: String,
     isPro: Boolean = false,
     isLocked: Boolean = false,
+    showChevron: Boolean = false,
     onClick: () -> Unit
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
+    val cardBackground = if (isPro && isLocked) {
+        SurfaceDark
+    } else {
+        SurfaceDark
+    }
 
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.97f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "scale"
-    )
+    val borderModifier = if (!isPro) {
+        Modifier.border(1.dp, SurfaceLight, RoundedCornerShape(16.dp))
+    } else {
+        Modifier.border(1.dp, SurfaceLight.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+    }
 
-    Box(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .scale(scale)
-            .clip(RoundedCornerShape(20.dp))
-            .background(SurfaceDark)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick
-            )
-            .padding(20.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .then(borderModifier)
+            .background(cardBackground)
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Top
+        // Icon container
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(if (isLocked) SurfaceLight else AccentAmberDim),
+            contentAlignment = Alignment.Center
         ) {
-            // Icon container
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(
-                        if (isPro && isLocked) ProGoldDim.copy(alpha = 0.2f)
-                        else AccentAmberDim.copy(alpha = 0.3f)
-                    ),
-                contentAlignment = Alignment.Center
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (isLocked) TextMuted else AccentAmber,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        // Text content
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = if (isLocked) Icons.Outlined.Lock else icon,
-                    contentDescription = null,
-                    tint = if (isPro && isLocked) ProGold else AccentAmber,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Text content
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = title,
-                        color = TextPrimary,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-
-                    if (isPro) {
-                        Spacer(modifier = Modifier.width(10.dp))
-                        ProBadge()
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
-
                 Text(
-                    text = description,
-                    color = TextSecondary,
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp
+                    text = title,
+                    color = if (isLocked) TextSecondary else TextPrimary,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
                 )
 
-                if (isPro && isLocked) {
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Text(
-                        text = "Unlock with Pro",
-                        color = ProGold,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                if (isPro) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    ProBadge()
                 }
             }
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            Text(
+                text = description,
+                color = TextMuted,
+                fontSize = 14.sp
+            )
+        }
+
+        // Chevron or Lock icon
+        if (showChevron) {
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = TextMuted,
+                modifier = Modifier.size(24.dp)
+            )
+        } else if (isLocked) {
+            Icon(
+                imageVector = Icons.Default.Lock,
+                contentDescription = null,
+                tint = TextMuted,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
@@ -276,23 +259,16 @@ private fun MethodCard(
 private fun ProBadge() {
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(
-                Brush.horizontalGradient(
-                    colors = listOf(
-                        ProGold,
-                        Color(0xFFFFB800)
-                    )
-                )
-            )
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(4.dp))
+            .background(AccentAmber.copy(alpha = 0.2f))
+            .padding(horizontal = 6.dp, vertical = 2.dp)
     ) {
         Text(
             text = "PRO",
-            color = BackgroundDark,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Black,
-            letterSpacing = 1.sp
+            color = AccentAmber,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.5.sp
         )
     }
 }

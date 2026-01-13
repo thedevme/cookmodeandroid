@@ -8,8 +8,10 @@ data class CookingState(
     val currentStepIndex: Int = 0,
     val isTimerRunning: Boolean = false,
     val timerSecondsRemaining: Int? = null,
+    val timerComplete: Boolean = false,
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val needsNotificationPermission: Boolean = false
 ) {
     val currentStep: Step?
         get() = steps.getOrNull(currentStepIndex)

@@ -244,32 +244,32 @@ A sequential execution checklist optimized for **fast launch**.
 ## Phase 5: Timer Service
 
 ### 5.1 — Background Timer
-- [ ] 110. Create `timer/TimerService.kt` (Foreground Service)
-- [ ] 111. Create notification channel
-- [ ] 112. Show ongoing notification with time remaining
-- [ ] 113. Handle timer completion notification (sound + vibrate)
-- [ ] 114. Bind service to CookingViewModel
+- [x] 110. Create `timer/TimerService.kt` (Foreground Service)
+- [x] 111. Create notification channel
+- [x] 112. Show ongoing notification with time remaining
+- [x] 113. Handle timer completion notification (sound + vibrate)
+- [x] 114. Bind service to CookingViewModel
 
 ### 5.2 — Timer Tests
-- [ ] 115. Create `unit/TimerServiceTests.kt`
-- [ ] 116. Test: Timer schedules correctly
-- [ ] 117. Test: Timer cancels on pause
-- [ ] 118. Test: Timer completion triggers callback
-- [ ] 119. Test: Multiple timers don't conflict
+- [x] 115. Create `unit/TimerServiceTests.kt`
+- [x] 116. Test: Timer schedules correctly
+- [x] 117. Test: Timer cancels on pause
+- [x] 118. Test: Timer completion triggers callback
+- [x] 119. Test: Multiple timers don't conflict
 - [ ] 120. Run tests — all must pass
 
 ### 5.3 — Timer Polish
-- [ ] 121. Timer continues when app backgrounded
-- [ ] 122. Timer continues when screen locked
-- [ ] 123. Tapping notification returns to Cooking Mode
-- [ ] 124. Multiple sequential timers work correctly
-- [ ] 125. Timer alarm sound selection (default system)
+- [x] 121. Timer continues when app backgrounded
+- [x] 122. Timer continues when screen locked
+- [x] 123. Tapping notification returns to Cooking Mode
+- [x] 124. Multiple sequential timers work correctly
+- [x] 125. Timer alarm sound selection (default system)
 
 ### 5.4 — Permissions
-- [ ] 126. Request notification permission (Android 13+)
-- [ ] 127. Request POST_NOTIFICATIONS gracefully
-- [ ] 128. Handle permission denied state
-- [ ] 129. Add foreground service permission to manifest
+- [x] 126. Request notification permission (Android 13+)
+- [x] 127. Request POST_NOTIFICATIONS gracefully
+- [x] 128. Handle permission denied state
+- [x] 129. Add foreground service permission to manifest
 - [ ] 130. Test on Android 13+ and older
 
 **✅ MILESTONE: Timers Work (Step 125)**

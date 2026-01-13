@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.designtoswiftui.cookmode.data.repository.RecipeRepository
+import io.designtoswiftui.cookmode.timer.TimerManager
 import io.designtoswiftui.cookmode.ui.cooking.CookingState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -16,13 +17,43 @@ import javax.inject.Inject
 
 @HiltViewModel
 class CookingViewModel @Inject constructor(
-    private val repository: RecipeRepository
+    private val repository: RecipeRepository,
+    private val timerManager: TimerManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CookingState())
     val uiState: StateFlow<CookingState> = _uiState.asStateFlow()
 
     private var timerJob: Job? = null
+    private var serviceObserverJob: Job? = null
+    private var useBackgroundTimer = true // Use foreground service for background timer support
+
+    init {
+        // Bind to timer service and observe its state
+        timerManager.bindService()
+        observeTimerService()
+    }
+
+    private fun observeTimerService() {
+        serviceObserverJob = viewModelScope.launch {
+            // Wait for service to be bound, then observe its state
+            timerManager.isServiceBound.collect { isBound ->
+                if (isBound) {
+                    timerManager.getService()?.timerState?.collect { serviceState ->
+                        if (serviceState.isRunning || serviceState.isComplete) {
+                            _uiState.update {
+                                it.copy(
+                                    isTimerRunning = serviceState.isRunning,
+                                    timerSecondsRemaining = serviceState.secondsRemaining,
+                                    timerComplete = serviceState.isComplete
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     fun loadRecipe(recipeId: Long) {
         viewModelScope.launch {
@@ -117,25 +148,35 @@ class CookingViewModel @Inject constructor(
 
         if (remainingSeconds <= 0) return
 
-        _uiState.update { it.copy(isTimerRunning = true) }
+        if (useBackgroundTimer) {
+            // Use foreground service for background timer support
+            val instruction = currentState.currentStep?.instruction ?: ""
+            timerManager.startTimer(remainingSeconds, instruction)
+            _uiState.update { it.copy(isTimerRunning = true) }
+        } else {
+            // Fallback to in-process timer (stops when app is backgrounded)
+            _uiState.update { it.copy(isTimerRunning = true) }
 
-        timerJob?.cancel()
-        timerJob = viewModelScope.launch {
-            var seconds = remainingSeconds
-            while (seconds > 0 && _uiState.value.isTimerRunning) {
-                delay(1000L)
-                seconds--
-                _uiState.update { it.copy(timerSecondsRemaining = seconds) }
-            }
+            timerJob?.cancel()
+            timerJob = viewModelScope.launch {
+                var seconds = remainingSeconds
+                while (seconds > 0 && _uiState.value.isTimerRunning) {
+                    delay(1000L)
+                    seconds--
+                    _uiState.update { it.copy(timerSecondsRemaining = seconds) }
+                }
 
-            if (seconds == 0) {
-                _uiState.update { it.copy(isTimerRunning = false) }
-                onTimerComplete()
+                if (seconds == 0) {
+                    _uiState.update { it.copy(isTimerRunning = false, timerComplete = true) }
+                }
             }
         }
     }
 
     fun pauseTimer() {
+        if (useBackgroundTimer) {
+            timerManager.pauseTimer()
+        }
         _uiState.update { it.copy(isTimerRunning = false) }
         timerJob?.cancel()
         timerJob = null
@@ -143,11 +184,15 @@ class CookingViewModel @Inject constructor(
 
     fun resetTimer() {
         stopTimer()
+        if (useBackgroundTimer) {
+            timerManager.resetTimer()
+        }
         val originalDuration = _uiState.value.currentStepTimerSeconds
         _uiState.update {
             it.copy(
                 timerSecondsRemaining = originalDuration,
-                isTimerRunning = false
+                isTimerRunning = false,
+                timerComplete = false
             )
         }
     }
@@ -160,18 +205,36 @@ class CookingViewModel @Inject constructor(
         }
     }
 
+    fun dismissTimerCompletion() {
+        if (useBackgroundTimer) {
+            timerManager.clearCompletionState()
+        }
+        _uiState.update { it.copy(timerComplete = false) }
+    }
+
+    fun checkNotificationPermission() {
+        _uiState.update {
+            it.copy(needsNotificationPermission = timerManager.needsNotificationPermission())
+        }
+    }
+
+    fun onNotificationPermissionResult(granted: Boolean) {
+        _uiState.update { it.copy(needsNotificationPermission = false) }
+    }
+
     private fun stopTimer() {
+        if (useBackgroundTimer) {
+            timerManager.stopTimer()
+        }
         timerJob?.cancel()
         timerJob = null
         _uiState.update { it.copy(isTimerRunning = false) }
     }
 
-    private fun onTimerComplete() {
-        // Timer completed - notification will be handled by TimerService in Phase 5
-    }
-
     override fun onCleared() {
         super.onCleared()
+        serviceObserverJob?.cancel()
         timerJob?.cancel()
+        timerManager.unbindService()
     }
 }

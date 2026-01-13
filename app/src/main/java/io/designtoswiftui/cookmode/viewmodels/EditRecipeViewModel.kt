@@ -44,11 +44,12 @@ data class EditableStep(
 data class EditRecipeUiState(
     val recipeId: Long? = null,
     val title: String = "",
+    val iconName: String = "hot_soup",
     val imageUri: String? = null,
     val prepTimeMinutes: Int = 0,
     val servings: Int = 1,
     val ingredients: List<EditableIngredient> = listOf(EditableIngredient()),
-    val steps: List<EditableStep> = listOf(EditableStep()),
+    val steps: List<EditableStep> = emptyList(),
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val isDeleting: Boolean = false,
@@ -111,6 +112,7 @@ class EditRecipeViewModel @Inject constructor(
                         it.copy(
                             recipeId = recipeId,
                             title = recipeWithDetails.recipe.title,
+                            iconName = recipeWithDetails.recipe.iconName,
                             imageUri = recipeWithDetails.recipe.imageUri,
                             prepTimeMinutes = recipeWithDetails.recipe.prepTime,
                             servings = recipeWithDetails.recipe.servings,
@@ -134,6 +136,10 @@ class EditRecipeViewModel @Inject constructor(
 
     fun updateTitle(title: String) {
         _uiState.update { it.copy(title = title) }
+    }
+
+    fun updateIconName(iconName: String) {
+        _uiState.update { it.copy(iconName = iconName) }
     }
 
     fun updateImageUri(uri: String?) {
@@ -197,7 +203,7 @@ class EditRecipeViewModel @Inject constructor(
     fun removeStep(id: String) {
         _uiState.update { state ->
             val newSteps = state.steps.filter { it.id != id }
-            state.copy(steps = newSteps.ifEmpty { listOf(EditableStep()) })
+            state.copy(steps = newSteps)
         }
     }
 
@@ -244,6 +250,7 @@ class EditRecipeViewModel @Inject constructor(
                 val recipe = Recipe(
                     id = state.recipeId ?: 0L,
                     title = state.title.trim(),
+                    iconName = state.iconName,
                     imageUri = state.imageUri,
                     prepTime = state.prepTimeMinutes,
                     servings = state.servings

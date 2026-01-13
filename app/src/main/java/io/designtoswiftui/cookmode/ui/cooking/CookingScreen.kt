@@ -1,7 +1,11 @@
 package io.designtoswiftui.cookmode.ui.cooking
 
+import android.Manifest
+import android.os.Build
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
@@ -10,6 +14,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -39,7 +45,9 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -53,6 +61,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -87,6 +96,7 @@ private val AccentAmberDim = Color(0xFF6B4D23)
 private val TextPrimary = Color(0xFFF5F5F5)
 private val TextSecondary = Color(0xFF9E9E9E)
 private val TextMuted = Color(0xFF616161)
+private val SuccessGreen = Color(0xFF4CAF50)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -98,9 +108,29 @@ fun CookingScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showExitDialog by remember { mutableStateOf(false) }
     var showStepList by remember { mutableStateOf(false) }
+    var showPermissionDialog by remember { mutableStateOf(false) }
     var previousStepIndex by remember { mutableIntStateOf(0) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
+
+    // Notification permission launcher
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        viewModel.onNotificationPermissionResult(granted)
+    }
+
+    // Check notification permission on launch
+    LaunchedEffect(Unit) {
+        viewModel.checkNotificationPermission()
+    }
+
+    // Show permission dialog if needed
+    LaunchedEffect(uiState.needsNotificationPermission) {
+        if (uiState.needsNotificationPermission) {
+            showPermissionDialog = true
+        }
+    }
 
     // Keep screen on
     val view = LocalView.current
@@ -215,11 +245,38 @@ fun CookingScreen(
         }
     }
 
+    // Timer completion overlay
+    AnimatedVisibility(
+        visible = uiState.timerComplete,
+        enter = fadeIn() + scaleIn(initialScale = 0.8f),
+        exit = fadeOut() + scaleOut(targetScale = 0.8f)
+    ) {
+        TimerCompleteOverlay(
+            onDismiss = { viewModel.dismissTimerCompletion() }
+        )
+    }
+
     // Exit confirmation dialog
     if (showExitDialog) {
         ExitConfirmationDialog(
             onConfirm = onExit,
             onDismiss = { showExitDialog = false }
+        )
+    }
+
+    // Notification permission dialog
+    if (showPermissionDialog) {
+        NotificationPermissionDialog(
+            onAllow = {
+                showPermissionDialog = false
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            },
+            onDeny = {
+                showPermissionDialog = false
+                viewModel.onNotificationPermissionResult(false)
+            }
         )
     }
 
@@ -676,6 +733,148 @@ private fun ExitConfirmationDialog(
             ) {
                 Text(
                     text = "CANCEL",
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+            }
+        }
+    )
+}
+
+@Composable
+private fun TimerCompleteOverlay(
+    onDismiss: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BackgroundDark.copy(alpha = 0.95f))
+            .clickable(onClick = onDismiss),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Success icon
+            Box(
+                modifier = Modifier
+                    .size(120.dp)
+                    .clip(CircleShape)
+                    .background(SuccessGreen.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.CheckCircle,
+                    contentDescription = null,
+                    tint = SuccessGreen,
+                    modifier = Modifier.size(72.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Text(
+                text = "Timer Complete!",
+                color = TextPrimary,
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Tap anywhere to continue",
+                color = TextSecondary,
+                fontSize = 16.sp
+            )
+
+            Spacer(modifier = Modifier.height(48.dp))
+
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .height(56.dp)
+                    .width(200.dp),
+                shape = RoundedCornerShape(28.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = AccentAmber
+                )
+            ) {
+                Text(
+                    text = "CONTINUE",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp,
+                    color = BackgroundDark
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun NotificationPermissionDialog(
+    onAllow: () -> Unit,
+    onDeny: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDeny,
+        containerColor = SurfaceDark,
+        icon = {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(AccentAmberDim),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Notifications,
+                    contentDescription = null,
+                    tint = AccentAmber,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        },
+        title = {
+            Text(
+                text = "Enable Notifications",
+                color = TextPrimary,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+        },
+        text = {
+            Text(
+                text = "Allow notifications so you'll know when your cooking timer is done, even if your screen is off or you switch apps.",
+                color = TextSecondary,
+                textAlign = TextAlign.Center
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onAllow,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = AccentAmber
+                )
+            ) {
+                Text(
+                    text = "ALLOW",
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDeny,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = TextSecondary
+                )
+            ) {
+                Text(
+                    text = "NOT NOW",
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 )

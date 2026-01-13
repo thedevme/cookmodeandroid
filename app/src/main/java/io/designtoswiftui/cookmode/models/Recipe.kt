@@ -8,6 +8,7 @@ data class Recipe(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val title: String,
+    val iconName: String = "hot_soup",
     val imageUri: String? = null,
     val prepTime: Int = 0,
     val servings: Int = 1,

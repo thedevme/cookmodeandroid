@@ -1,14 +1,7 @@
 package io.designtoswiftui.cookmode.ui.recipe
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,23 +21,21 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DragIndicator
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -59,14 +50,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import io.designtoswiftui.cookmode.models.RecipeIcon
 import io.designtoswiftui.cookmode.viewmodels.EditRecipeViewModel
 import io.designtoswiftui.cookmode.viewmodels.EditableIngredient
 import io.designtoswiftui.cookmode.viewmodels.EditableStep
@@ -85,18 +77,26 @@ private val DangerRed = Color(0xFFCF6679)
 @Composable
 fun EditRecipeScreen(
     recipeId: Long? = null,
+    selectedIconFromPicker: String? = null,
     onNavigateBack: () -> Unit,
     onSaveSuccess: () -> Unit,
     onDeleteSuccess: () -> Unit,
+    onSelectIcon: (String) -> Unit = {},
     viewModel: EditRecipeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var showDeleteDialog by remember { mutableStateOf(false) }
     var showDiscardDialog by remember { mutableStateOf(false) }
 
     // Load recipe if editing
     LaunchedEffect(recipeId) {
         recipeId?.let { viewModel.loadRecipe(it) }
+    }
+
+    // Handle icon selection from picker
+    LaunchedEffect(selectedIconFromPicker) {
+        if (selectedIconFromPicker != null) {
+            viewModel.updateIconName(selectedIconFromPicker)
+        }
     }
 
     // Handle save/delete success
@@ -115,11 +115,7 @@ fun EditRecipeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(BackgroundDark, Color(0xFF0A0A0A))
-                )
-            )
+            .background(BackgroundDark)
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
@@ -127,8 +123,10 @@ fun EditRecipeScreen(
             // Top bar
             TopBar(
                 isEditMode = uiState.isEditMode,
-                onBack = { showDiscardDialog = true },
-                onDelete = if (uiState.isEditMode) {{ showDeleteDialog = true }} else null
+                canSave = uiState.canSave,
+                isSaving = uiState.isSaving,
+                onClose = { showDiscardDialog = true },
+                onSave = { viewModel.saveRecipe() }
             )
 
             // Content
@@ -136,176 +134,87 @@ fun EditRecipeScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+                contentPadding = PaddingValues(bottom = 32.dp)
             ) {
-                // Title section
+                // Image section
                 item {
-                    SectionCard(title = "RECIPE DETAILS") {
-                        // Title field
-                        InputField(
-                            label = "Recipe Title",
-                            value = uiState.title,
-                            onValueChange = { viewModel.updateTitle(it) },
-                            placeholder = "Enter recipe name"
-                        )
+                    ImageSection(
+                        imageUri = uiState.imageUri,
+                        isEditMode = uiState.isEditMode,
+                        onAddPhoto = { /* TODO: Image picker */ },
+                        onReplacePhoto = { /* TODO: Image picker */ }
+                    )
+                }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                // Icon selector row
+                item {
+                    IconSelectorRow(
+                        selectedIconKey = uiState.iconName,
+                        isEditMode = uiState.isEditMode,
+                        onClick = { onSelectIcon(uiState.iconName) }
+                    )
+                }
 
-                        // Prep time and servings row
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            NumberField(
-                                label = "Prep Time",
-                                value = uiState.prepTimeMinutes,
-                                onValueChange = { viewModel.updatePrepTime(it) },
-                                suffix = "min",
-                                modifier = Modifier.weight(1f)
-                            )
+                // Recipe title
+                item {
+                    RecipeTitleSection(
+                        title = uiState.title,
+                        onTitleChange = { viewModel.updateTitle(it) }
+                    )
+                }
 
-                            NumberField(
-                                label = "Servings",
-                                value = uiState.servings,
-                                onValueChange = { viewModel.updateServings(it) },
-                                suffix = "",
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
+                // General Information
+                item {
+                    GeneralInfoSection(
+                        prepTime = uiState.prepTimeMinutes,
+                        servings = uiState.servings,
+                        onPrepTimeChange = { viewModel.updatePrepTime(it) },
+                        onServingsChange = { viewModel.updateServings(it) }
+                    )
                 }
 
                 // Ingredients section
                 item {
-                    SectionCard(
-                        title = "INGREDIENTS",
-                        onAdd = { viewModel.addIngredient() }
-                    ) {
-                        Column(
-                            modifier = Modifier.animateContentSize(
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessLow
-                                )
-                            ),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            uiState.ingredients.forEachIndexed { index, ingredient ->
-                                IngredientRow(
-                                    ingredient = ingredient,
-                                    onAmountChange = { viewModel.updateIngredient(ingredient.id, amount = it) },
-                                    onUnitChange = { viewModel.updateIngredient(ingredient.id, unit = it) },
-                                    onNameChange = { viewModel.updateIngredient(ingredient.id, name = it) },
-                                    onRemove = { viewModel.removeIngredient(ingredient.id) },
-                                    showRemove = uiState.ingredients.size > 1
-                                )
-                            }
-                        }
-                    }
+                    IngredientsHeader(onAdd = { viewModel.addIngredient() })
+                }
+
+                itemsIndexed(
+                    items = uiState.ingredients,
+                    key = { _, ingredient -> ingredient.id }
+                ) { index, ingredient ->
+                    IngredientRow(
+                        ingredient = ingredient,
+                        onAmountChange = { viewModel.updateIngredient(ingredient.id, amount = it) },
+                        onNameChange = { viewModel.updateIngredient(ingredient.id, name = it) },
+                        onRemove = { viewModel.removeIngredient(ingredient.id) },
+                        showRemove = uiState.ingredients.size > 1
+                    )
                 }
 
                 // Steps section
                 item {
-                    SectionCard(
-                        title = "STEPS",
-                        onAdd = { viewModel.addStep() }
-                    ) {
-                        Column(
-                            modifier = Modifier.animateContentSize(
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessLow
-                                )
-                            ),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            uiState.steps.forEachIndexed { index, step ->
-                                StepRow(
-                                    stepNumber = index + 1,
-                                    step = step,
-                                    onInstructionChange = { viewModel.updateStep(step.id, instruction = it) },
-                                    onTimerToggle = { viewModel.updateStep(step.id, hasTimer = it) },
-                                    onTimerMinutesChange = { viewModel.updateStep(step.id, timerMinutes = it) },
-                                    onTimerSecondsChange = { viewModel.updateStep(step.id, timerSeconds = it) },
-                                    onRemove = { viewModel.removeStep(step.id) },
-                                    showRemove = uiState.steps.size > 1
-                                )
-                            }
-                        }
-                    }
+                    StepsHeader()
                 }
 
-                // Validation errors
-                item {
-                    AnimatedVisibility(
-                        visible = uiState.validationErrors.isNotEmpty(),
-                        enter = fadeIn() + expandVertically(),
-                        exit = fadeOut() + shrinkVertically()
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(DangerRed.copy(alpha = 0.1f))
-                                .border(1.dp, DangerRed.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
-                                .padding(16.dp)
-                        ) {
-                            uiState.validationErrors.forEach { error ->
-                                Text(
-                                    text = "• $error",
-                                    color = DangerRed,
-                                    fontSize = 14.sp
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Bottom spacing
-                item {
-                    Spacer(modifier = Modifier.height(80.dp))
-                }
-            }
-
-            // Save button
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, BackgroundDark)
-                        )
+                itemsIndexed(
+                    items = uiState.steps,
+                    key = { _, step -> step.id }
+                ) { index, step ->
+                    StepRow(
+                        stepNumber = index + 1,
+                        step = step,
+                        onInstructionChange = { viewModel.updateStep(step.id, instruction = it) },
+                        onTimerToggle = { viewModel.updateStep(step.id, hasTimer = it) },
+                        onTimerMinutesChange = { viewModel.updateStep(step.id, timerMinutes = it) },
+                        onTimerSecondsChange = { viewModel.updateStep(step.id, timerSeconds = it) },
+                        onRemove = { viewModel.removeStep(step.id) },
+                        showRemove = uiState.steps.size > 1
                     )
-                    .padding(24.dp)
-            ) {
-                Button(
-                    onClick = { viewModel.saveRecipe() },
-                    enabled = uiState.canSave,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AccentAmber,
-                        disabledContainerColor = AccentAmberDim
-                    )
-                ) {
-                    if (uiState.isSaving) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = BackgroundDark,
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text(
-                            text = if (uiState.isEditMode) "UPDATE RECIPE" else "SAVE RECIPE",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 2.sp,
-                            color = BackgroundDark
-                        )
-                    }
+                }
+
+                // Add step button
+                item {
+                    AddStepButton(onClick = { viewModel.addStep() })
                 }
             }
         }
@@ -321,42 +230,6 @@ fun EditRecipeScreen(
                 CircularProgressIndicator(color = AccentAmber)
             }
         }
-    }
-
-    // Delete confirmation dialog
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            containerColor = SurfaceDark,
-            title = {
-                Text("Delete Recipe?", color = TextPrimary, fontWeight = FontWeight.Bold)
-            },
-            text = {
-                Text(
-                    "This action cannot be undone.",
-                    color = TextSecondary
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDeleteDialog = false
-                        viewModel.deleteRecipe()
-                    },
-                    colors = ButtonDefaults.textButtonColors(contentColor = DangerRed)
-                ) {
-                    Text("DELETE", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { showDeleteDialog = false },
-                    colors = ButtonDefaults.textButtonColors(contentColor = TextSecondary)
-                ) {
-                    Text("CANCEL", fontWeight = FontWeight.Bold)
-                }
-            }
-        )
     }
 
     // Discard confirmation dialog
@@ -399,26 +272,22 @@ fun EditRecipeScreen(
 @Composable
 private fun TopBar(
     isEditMode: Boolean,
-    onBack: () -> Unit,
-    onDelete: (() -> Unit)?
+    canSave: Boolean,
+    isSaving: Boolean,
+    onClose: () -> Unit,
+    onSave: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 8.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(
-            onClick = onBack,
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(SurfaceDark)
-        ) {
+        IconButton(onClick = onClose) {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
+                imageVector = Icons.Default.Close,
+                contentDescription = "Close",
                 tint = TextSecondary
             )
         }
@@ -430,115 +299,186 @@ private fun TopBar(
             fontWeight = FontWeight.SemiBold
         )
 
-        if (onDelete != null) {
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(DangerRed.copy(alpha = 0.1f))
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = DangerRed
+        TextButton(
+            onClick = onSave,
+            enabled = canSave && !isSaving
+        ) {
+            if (isSaving) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = AccentAmber,
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Text(
+                    text = if (isEditMode) "Save" else "Create",
+                    color = if (canSave) AccentAmber else TextMuted,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
-        } else {
-            Spacer(modifier = Modifier.size(48.dp))
         }
     }
 }
 
 @Composable
-private fun SectionCard(
+private fun ImageSection(
+    imageUri: String?,
+    isEditMode: Boolean,
+    onAddPhoto: () -> Unit,
+    onReplacePhoto: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(220.dp)
+            .background(SurfaceDark)
+    ) {
+        // TODO: Add image display when Coil is added as a dependency
+        // Centered placeholder content
+        Column(
+            modifier = Modifier.align(Alignment.Center),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Default.Image,
+                contentDescription = null,
+                tint = TextMuted,
+                modifier = Modifier.size(48.dp)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "No image added",
+                color = TextMuted,
+                fontSize = 14.sp
+            )
+        }
+
+        // Add Photo button at bottom-right
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(AccentAmber)
+                .clickable(onClick = onAddPhoto)
+                .padding(horizontal = 16.dp, vertical = 10.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.CameraAlt,
+                    contentDescription = null,
+                    tint = BackgroundDark,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Add Photo",
+                    color = BackgroundDark,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun IconSelectorRow(
+    selectedIconKey: String,
+    isEditMode: Boolean,
+    onClick: () -> Unit
+) {
+    val selectedIcon = RecipeIcon.fromKey(selectedIconKey)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 16.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(SurfaceDark)
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Icon thumbnail
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(SurfaceLight),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(id = selectedIcon.drawableRes),
+                contentDescription = selectedIcon.label,
+                colorFilter = ColorFilter.tint(AccentAmber),
+                modifier = Modifier.size(28.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "RECIPE ICON",
+                color = TextMuted,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 1.sp
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = if (isEditMode) "Change Icon" else "Choose Icon",
+                color = TextPrimary,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+
+        Icon(
+            imageVector = Icons.Default.ChevronRight,
+            contentDescription = "Select",
+            tint = TextMuted
+        )
+    }
+}
+
+@Composable
+private fun RecipeTitleSection(
     title: String,
-    onAdd: (() -> Unit)? = null,
-    content: @Composable () -> Unit
+    onTitleChange: (String) -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(SurfaceDark)
-            .padding(20.dp)
+            .padding(horizontal = 16.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = title,
-                color = TextMuted,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp
-            )
-
-            if (onAdd != null) {
-                IconButton(
-                    onClick = onAdd,
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(AccentAmberDim)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Add",
-                        tint = AccentAmber,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        content()
-    }
-}
-
-@Composable
-private fun InputField(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier = modifier) {
         Text(
-            text = label,
-            color = TextSecondary,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium
+            text = "RECIPE TITLE",
+            color = TextMuted,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 1.sp
         )
-
         Spacer(modifier = Modifier.height(8.dp))
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(SurfaceLight)
-                .padding(horizontal = 16.dp, vertical = 14.dp)
-        ) {
-            if (value.isEmpty()) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            if (title.isEmpty()) {
                 Text(
-                    text = placeholder,
-                    color = TextMuted,
-                    fontSize = 16.sp
+                    text = "e.g. Grandma's Apple Pie",
+                    color = AccentAmber.copy(alpha = 0.5f),
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
-
             BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
+                value = title,
+                onValueChange = onTitleChange,
                 textStyle = TextStyle(
                     color = TextPrimary,
-                    fontSize = 16.sp
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.SemiBold
                 ),
                 singleLine = true,
                 cursorBrush = SolidColor(AccentAmber),
@@ -549,69 +489,146 @@ private fun InputField(
 }
 
 @Composable
-private fun NumberField(
-    label: String,
-    value: Int,
-    onValueChange: (Int) -> Unit,
-    suffix: String,
-    modifier: Modifier = Modifier
+private fun GeneralInfoSection(
+    prepTime: Int,
+    servings: Int,
+    onPrepTimeChange: (Int) -> Unit,
+    onServingsChange: (Int) -> Unit
 ) {
-    Column(modifier = modifier) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 16.dp)
+    ) {
         Text(
-            text = label,
-            color = TextSecondary,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium
+            text = "General Information",
+            color = TextPrimary,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Prep Time
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Prep Time",
+                    color = TextMuted,
+                    fontSize = 13.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(SurfaceDark)
+                        .padding(16.dp)
+                ) {
+                    if (prepTime == 0) {
+                        Text(
+                            text = "e.g. 20 min",
+                            color = TextMuted,
+                            fontSize = 16.sp
+                        )
+                    }
+                    BasicTextField(
+                        value = if (prepTime == 0) "" else "$prepTime min",
+                        onValueChange = { text ->
+                            val number = text.filter { it.isDigit() }.toIntOrNull() ?: 0
+                            onPrepTimeChange(number)
+                        },
+                        textStyle = TextStyle(
+                            color = TextPrimary,
+                            fontSize = 16.sp
+                        ),
+                        singleLine = true,
+                        cursorBrush = SolidColor(AccentAmber),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
+            // Servings
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Servings",
+                    color = TextMuted,
+                    fontSize = 13.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(SurfaceDark)
+                        .padding(16.dp)
+                ) {
+                    if (servings == 1) {
+                        Text(
+                            text = "e.g. 4 people",
+                            color = TextMuted,
+                            fontSize = 16.sp
+                        )
+                    }
+                    BasicTextField(
+                        value = if (servings == 1) "" else "$servings people",
+                        onValueChange = { text ->
+                            val number = text.filter { it.isDigit() }.toIntOrNull() ?: 1
+                            onServingsChange(number.coerceAtLeast(1))
+                        },
+                        textStyle = TextStyle(
+                            color = TextPrimary,
+                            fontSize = 16.sp
+                        ),
+                        singleLine = true,
+                        cursorBrush = SolidColor(AccentAmber),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun IngredientsHeader(onAdd: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(top = 8.dp, bottom = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "Ingredients",
+            color = TextPrimary,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold
+        )
 
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(SurfaceLight),
+                .clickable(onClick = onAdd),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Decrease button
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clickable { onValueChange((value - 1).coerceAtLeast(0)) },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "−",
-                    color = TextSecondary,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            // Value display
-            Text(
-                text = if (suffix.isNotEmpty()) "$value $suffix" else value.toString(),
-                color = TextPrimary,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.weight(1f)
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Add",
+                tint = AccentAmber,
+                modifier = Modifier.size(18.dp)
             )
-
-            // Increase button
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clickable { onValueChange(value + 1) },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "+",
-                    color = AccentAmber,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "Add",
+                color = AccentAmber,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }
@@ -620,46 +637,83 @@ private fun NumberField(
 private fun IngredientRow(
     ingredient: EditableIngredient,
     onAmountChange: (String) -> Unit,
-    onUnitChange: (String) -> Unit,
     onNameChange: (String) -> Unit,
     onRemove: () -> Unit,
     showRemove: Boolean
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(SurfaceDark)
+            .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Amount
-        SmallTextField(
-            value = ingredient.amount,
-            onValueChange = onAmountChange,
-            placeholder = "Qty",
-            modifier = Modifier.width(56.dp),
-            keyboardType = KeyboardType.Number
+        // Drag handle
+        Icon(
+            imageVector = Icons.Default.DragIndicator,
+            contentDescription = "Reorder",
+            tint = TextMuted,
+            modifier = Modifier.size(20.dp)
         )
 
-        // Unit
-        SmallTextField(
-            value = ingredient.unit,
-            onValueChange = onUnitChange,
-            placeholder = "Unit",
-            modifier = Modifier.width(64.dp)
-        )
+        Spacer(modifier = Modifier.width(12.dp))
+
+        // Quantity
+        Box(
+            modifier = Modifier.width(60.dp)
+        ) {
+            if (ingredient.amount.isEmpty()) {
+                Text(
+                    text = "Qty",
+                    color = TextMuted,
+                    fontSize = 14.sp
+                )
+            }
+            BasicTextField(
+                value = ingredient.amount,
+                onValueChange = onAmountChange,
+                textStyle = TextStyle(
+                    color = AccentAmber,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                ),
+                singleLine = true,
+                cursorBrush = SolidColor(AccentAmber),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
 
         // Name
-        SmallTextField(
-            value = ingredient.name,
-            onValueChange = onNameChange,
-            placeholder = "Ingredient name",
-            modifier = Modifier.weight(1f)
-        )
+        Box(modifier = Modifier.weight(1f)) {
+            if (ingredient.name.isEmpty()) {
+                Text(
+                    text = "Ingredient name",
+                    color = TextMuted,
+                    fontSize = 14.sp
+                )
+            }
+            BasicTextField(
+                value = ingredient.name,
+                onValueChange = onNameChange,
+                textStyle = TextStyle(
+                    color = TextPrimary,
+                    fontSize = 14.sp
+                ),
+                singleLine = true,
+                cursorBrush = SolidColor(AccentAmber),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
         // Remove button
         if (showRemove) {
             IconButton(
                 onClick = onRemove,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(32.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
@@ -673,40 +727,17 @@ private fun IngredientRow(
 }
 
 @Composable
-private fun SmallTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String,
-    modifier: Modifier = Modifier,
-    keyboardType: KeyboardType = KeyboardType.Text
-) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(SurfaceLight)
-            .padding(horizontal = 12.dp, vertical = 10.dp)
-    ) {
-        if (value.isEmpty()) {
-            Text(
-                text = placeholder,
-                color = TextMuted,
-                fontSize = 14.sp
-            )
-        }
-
-        BasicTextField(
-            value = value,
-            onValueChange = onValueChange,
-            textStyle = TextStyle(
-                color = TextPrimary,
-                fontSize = 14.sp
-            ),
-            singleLine = true,
-            cursorBrush = SolidColor(AccentAmber),
-            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
+private fun StepsHeader() {
+    Text(
+        text = "Preparation Steps",
+        color = TextPrimary,
+        fontSize = 18.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(top = 16.dp, bottom = 12.dp)
+    )
 }
 
 @Composable
@@ -723,55 +754,65 @@ private fun StepRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(SurfaceLight)
-            .padding(16.dp)
+            .padding(horizontal = 16.dp, vertical = 4.dp)
     ) {
+        // Step header
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Step number badge
+            // Step badge
             Box(
                 modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(AccentAmberDim),
-                contentAlignment = Alignment.Center
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(AccentAmberDim)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = stepNumber.toString(),
+                    text = "STEP $stepNumber",
                     color = AccentAmber,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
                 )
             }
 
-            if (showRemove) {
-                IconButton(
-                    onClick = onRemove,
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Remove step",
-                        tint = TextMuted,
-                        modifier = Modifier.size(18.dp)
-                    )
+            Row {
+                // Drag handle
+                Icon(
+                    imageVector = Icons.Default.DragIndicator,
+                    contentDescription = "Reorder",
+                    tint = TextMuted,
+                    modifier = Modifier.size(20.dp)
+                )
+
+                if (showRemove) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(
+                        onClick = onRemove,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete step",
+                            tint = TextMuted,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-        // Instruction field
+        // Instruction text area
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(12.dp))
                 .background(SurfaceDark)
-                .padding(12.dp)
+                .padding(16.dp)
         ) {
             if (step.instruction.isEmpty()) {
                 Text(
@@ -780,7 +821,6 @@ private fun StepRow(
                     fontSize = 15.sp
                 )
             }
-
             BasicTextField(
                 value = step.instruction,
                 onValueChange = onInstructionChange,
@@ -794,118 +834,58 @@ private fun StepRow(
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Timer toggle
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Add Timer",
-                color = TextSecondary,
-                fontSize = 14.sp
-            )
-
-            Switch(
-                checked = step.hasTimer,
-                onCheckedChange = onTimerToggle,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = AccentAmber,
-                    checkedTrackColor = AccentAmberDim,
-                    uncheckedThumbColor = TextMuted,
-                    uncheckedTrackColor = SurfaceDark
+        // Timer section (simplified for now)
+        if (step.hasTimer) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(AccentAmberDim.copy(alpha = 0.3f))
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Timer: ${step.timerMinutes}m ${step.timerSeconds}s",
+                    color = AccentAmber,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
                 )
-            )
-        }
-
-        // Timer duration picker
-        AnimatedVisibility(
-            visible = step.hasTimer,
-            enter = fadeIn() + expandVertically(),
-            exit = fadeOut() + shrinkVertically()
-        ) {
-            Column {
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // Minutes
-                    TimerPickerField(
-                        label = "Minutes",
-                        value = step.timerMinutes,
-                        onValueChange = onTimerMinutesChange,
-                        maxValue = 120,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    // Seconds
-                    TimerPickerField(
-                        label = "Seconds",
-                        value = step.timerSeconds,
-                        onValueChange = onTimerSecondsChange,
-                        maxValue = 59,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
             }
         }
     }
 }
 
 @Composable
-private fun TimerPickerField(
-    label: String,
-    value: Int,
-    onValueChange: (Int) -> Unit,
-    maxValue: Int,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier = modifier) {
-        Text(
-            text = label,
-            color = TextMuted,
-            fontSize = 12.sp
-        )
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .background(SurfaceDark),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clickable { onValueChange((value - 1).coerceAtLeast(0)) },
-                contentAlignment = Alignment.Center
-            ) {
-                Text("−", color = TextSecondary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            }
-
-            Text(
-                text = "%02d".format(value),
-                color = AccentAmber,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.weight(1f)
+private fun AddStepButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .border(
+                width = 1.dp,
+                color = AccentAmber.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(12.dp)
             )
-
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clickable { onValueChange((value + 1).coerceAtMost(maxValue)) },
-                contentAlignment = Alignment.Center
-            ) {
-                Text("+", color = AccentAmber, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            }
+            .clickable(onClick = onClick)
+            .padding(vertical = 16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = null,
+                tint = AccentAmber,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Add Step",
+                color = AccentAmber,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }
