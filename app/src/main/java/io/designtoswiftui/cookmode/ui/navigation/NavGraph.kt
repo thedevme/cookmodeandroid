@@ -13,6 +13,7 @@ import io.designtoswiftui.cookmode.ui.cooking.CookingScreen
 import io.designtoswiftui.cookmode.ui.home.HomeScreen
 import io.designtoswiftui.cookmode.ui.recipe.AddRecipeMethodScreen
 import io.designtoswiftui.cookmode.ui.recipe.EditRecipeScreen
+import io.designtoswiftui.cookmode.ui.paywall.PaywallScreen
 import io.designtoswiftui.cookmode.ui.recipe.PasteRecipeScreen
 import io.designtoswiftui.cookmode.ui.recipe.RecipeDetailScreen
 import io.designtoswiftui.cookmode.ui.recipe.SelectIconScreen
@@ -35,6 +36,7 @@ sealed class Screen(val route: String) {
     data object Cooking : Screen("cooking/{recipeId}") {
         fun createRoute(recipeId: Long): String = "cooking/$recipeId"
     }
+    data object Paywall : Screen("paywall")
 }
 
 @Composable
@@ -57,6 +59,9 @@ fun CookModeNavGraph(
                 },
                 onEditRecipe = { recipeId ->
                     navController.navigate(Screen.EditRecipe.createRoute(recipeId))
+                },
+                onShowPaywall = {
+                    navController.navigate(Screen.Paywall.route)
                 }
             )
         }
@@ -97,7 +102,7 @@ fun CookModeNavGraph(
                     }
                 },
                 onShowPaywall = {
-                    // TODO: Navigate to paywall in Phase 7
+                    navController.navigate(Screen.Paywall.route)
                 }
             )
         }
@@ -174,6 +179,14 @@ fun CookModeNavGraph(
             CookingScreen(
                 recipeId = recipeId,
                 onExit = { navController.popBackStack() }
+            )
+        }
+
+        // Paywall Screen
+        composable(Screen.Paywall.route) {
+            PaywallScreen(
+                onClose = { navController.popBackStack() },
+                onPurchaseSuccess = { navController.popBackStack() }
             )
         }
     }

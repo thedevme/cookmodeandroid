@@ -88,10 +88,13 @@ fun HomeScreen(
     onRecipeClick: (Long) -> Unit,
     onAddRecipe: () -> Unit,
     onEditRecipe: (Long) -> Unit,
+    onShowPaywall: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val recipes by viewModel.recipes.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
+    val recipeCount by viewModel.recipeCount.collectAsState()
+    val isPremium by viewModel.isPremium.collectAsState()
     var isSearching by remember { mutableStateOf(false) }
 
     val isEmpty = recipes.isEmpty() && searchQuery.isEmpty()
@@ -116,7 +119,8 @@ fun HomeScreen(
                 onCloseSearch = {
                     isSearching = false
                     viewModel.clearSearch()
-                }
+                },
+                onDebugAddRecipes = { viewModel.debugAddTestRecipes() }
             )
 
             // Divider line
@@ -149,7 +153,13 @@ fun HomeScreen(
 
         // FAB - always visible
         FloatingActionButton(
-            onClick = onAddRecipe,
+            onClick = {
+                if (viewModel.canAddRecipe()) {
+                    onAddRecipe()
+                } else {
+                    onShowPaywall()
+                }
+            },
             containerColor = AccentAmber,
             contentColor = BackgroundDark,
             shape = CircleShape,
@@ -167,13 +177,15 @@ fun HomeScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TopBar(
     isSearching: Boolean,
     searchQuery: String,
     onSearchClick: () -> Unit,
     onSearchQueryChange: (String) -> Unit,
-    onCloseSearch: () -> Unit
+    onCloseSearch: () -> Unit,
+    onDebugAddRecipes: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -226,7 +238,12 @@ private fun TopBar(
                 color = TextPrimary,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .combinedClickable(
+                        onClick = {},
+                        onLongClick = onDebugAddRecipes
+                    ),
                 textAlign = TextAlign.Center
             )
 

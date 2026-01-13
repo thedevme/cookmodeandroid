@@ -22,20 +22,26 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,6 +65,8 @@ private val TextPrimary = Color(0xFFF5F5F5)
 private val TextSecondary = Color(0xFF9E9E9E)
 private val TextMuted = Color(0xFF616161)
 
+private val DangerRed = Color(0xFFCF6679)
+
 @Composable
 fun RecipeDetailScreen(
     recipeId: Long,
@@ -68,9 +76,47 @@ fun RecipeDetailScreen(
     viewModel: RecipeDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(recipeId) {
         viewModel.loadRecipe(recipeId)
+    }
+
+    // Delete confirmation dialog
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = {
+                Text(
+                    text = "Delete Recipe",
+                    color = TextPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to delete \"${uiState.recipe?.title}\"? This cannot be undone.",
+                    color = TextSecondary
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        viewModel.deleteRecipe(recipeId) {
+                            onNavigateBack()
+                        }
+                    }
+                ) {
+                    Text("Delete", color = DangerRed)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            },
+            containerColor = SurfaceDark
+        )
     }
 
     Box(
@@ -97,7 +143,8 @@ fun RecipeDetailScreen(
                             imageUri = uiState.recipe!!.imageUri,
                             iconName = uiState.recipe!!.iconName,
                             onBack = onNavigateBack,
-                            onEdit = { onEditRecipe(recipeId) }
+                            onEdit = { onEditRecipe(recipeId) },
+                            onDelete = { showDeleteDialog = true }
                         )
                     }
 
@@ -197,7 +244,8 @@ private fun HeroSection(
     imageUri: String?,
     iconName: String,
     onBack: () -> Unit,
-    onEdit: () -> Unit
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
 ) {
     val recipeIcon = RecipeIcon.fromKey(iconName)
     val iconColor = Color(0xFF313131)
@@ -261,7 +309,7 @@ private fun HeroSection(
                 )
             }
 
-            // Top bar with back and edit buttons
+            // Top bar with back, edit, and delete buttons
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -278,13 +326,23 @@ private fun HeroSection(
                     )
                 }
 
-                IconButton(onClick = onEdit) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit",
-                        tint = TextPrimary,
-                        modifier = Modifier.size(22.dp)
-                    )
+                Row {
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete",
+                            tint = TextPrimary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    IconButton(onClick = onEdit) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit",
+                            tint = TextPrimary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                 }
             }
         }

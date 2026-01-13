@@ -63,4 +63,11 @@ class RecipeDetailViewModel @Inject constructor(
             }
         }
     }
+
+    fun deleteRecipe(recipeId: Long, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            repository.deleteRecipe(recipeId)
+            onSuccess()
+        }
+    }
 }

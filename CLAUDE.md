@@ -35,3 +35,11 @@ Pause and ask for clarification only when:
 
 Proceed autonomously within a phase. Stop only at phase completion or when blocked.
 </execution_mode>
+
+---
+
+## Pre-Release Checklist (Before Store Submission)
+
+- [ ] Remove debug code in `HomeViewModel.kt` - delete `debugAddTestRecipes()` function
+- [ ] Remove debug code in `HomeScreen.kt` - remove `onDebugAddRecipes` parameter and long-press on "My Recipes" title
+- [ ] Replace `YOUR_REVENUECAT_API_KEY` in `CookModeApplication.kt` with actual API key

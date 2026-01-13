@@ -66,6 +66,12 @@ dependencies {
     // Navigation
     implementation(libs.androidx.navigation.compose)
 
+    // DataStore
+    implementation(libs.androidx.datastore.preferences)
+
+    // RevenueCat
+    implementation(libs.revenuecat.purchases)
+
     // Unit Testing
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
