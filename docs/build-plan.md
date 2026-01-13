@@ -205,6 +205,42 @@ A sequential execution checklist optimized for **fast launch**.
 
 ---
 
+## Phase 4B: Add Recipe Flow Enhancement
+
+### 4B.1 — Add Recipe Method Screen
+- [x] 102a. Create `ui/recipe/AddRecipeMethodScreen.kt`
+- [x] 102b. Two cards: "Manual Entry" and "Paste from Clipboard" (PRO)
+- [x] 102c. Manual Entry navigates to EditRecipeScreen
+- [x] 102d. Paste from Clipboard shows lock icon if not Pro, else navigates to PasteRecipeScreen
+- [ ] 102e. Update navigation: FAB → AddRecipeMethodScreen
+
+### 4B.2 — Paste Recipe Screen (Pro Feature)
+- [x] 102f. Create `viewmodels/PasteRecipeViewModel.kt`
+  - Smart parse text into steps (numbered patterns, "Step X:", double newlines)
+  - StateFlow: sourceText, parsedSteps, isLoading
+  - Functions: parseText(), editStep(), mergeSteps(), deleteStep(), addManualStep()
+- [x] 102g. Create `ui/recipe/PasteRecipeScreen.kt`
+  - Source text input area
+  - Pro tip helper text
+  - Parse preview with PRO FEATURE badge
+  - Parsed step cards with Edit/Merge/Delete
+  - "Add Step Manually" and "Save Recipe" buttons
+- [ ] 102h. Gate behind Pro check - show paywall if not premium
+
+### 4B.3 — Update Home Screen Icons
+- [x] 102i. Replace emoji icons with Material Icons
+- [x] 102j. Use Icons.Outlined for recipe categories (Timer, Bolt, Eco, Fire, SoupKitchen)
+
+### 4B.4 — Paste Recipe Tests
+- [x] 102k. Create `unit/PasteRecipeViewModelTests.kt`
+- [x] 102l. Test: Parse numbered steps correctly
+- [x] 102m. Test: Parse "Step X:" format correctly
+- [x] 102n. Test: Merge adjacent steps
+- [x] 102o. Test: Delete step removes from list
+- [ ] 102p. Run tests — all must pass
+
+---
+
 ## Phase 5: Timer Service
 
 ### 5.1 — Background Timer

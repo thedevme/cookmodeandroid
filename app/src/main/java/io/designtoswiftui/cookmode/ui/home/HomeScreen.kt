@@ -35,6 +35,17 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.Eco
+import androidx.compose.material.icons.outlined.LocalCafe
+import androidx.compose.material.icons.outlined.LocalDining
+import androidx.compose.material.icons.outlined.LocalFireDepartment
+import androidx.compose.material.icons.outlined.Restaurant
+import androidx.compose.material.icons.outlined.RestaurantMenu
+import androidx.compose.material.icons.outlined.RiceBowl
+import androidx.compose.material.icons.outlined.SoupKitchen
+import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -74,31 +85,48 @@ private val TextSecondary = Color(0xFF9E9E9E)
 private val TextMuted = Color(0xFF616161)
 private val DangerRed = Color(0xFFCF6679)
 
-// Recipe emoji mapping based on title keywords
-private fun getRecipeEmoji(title: String): String {
+// Recipe icon mapping based on title keywords
+private fun getRecipeIcon(title: String): ImageVector {
     val lowerTitle = title.lowercase()
     return when {
-        lowerTitle.contains("pasta") || lowerTitle.contains("spaghetti") -> "🍝"
-        lowerTitle.contains("pizza") -> "🍕"
-        lowerTitle.contains("salad") -> "🥗"
-        lowerTitle.contains("soup") -> "🍲"
-        lowerTitle.contains("cake") || lowerTitle.contains("dessert") -> "🍰"
-        lowerTitle.contains("cookie") -> "🍪"
-        lowerTitle.contains("bread") -> "🍞"
-        lowerTitle.contains("chicken") -> "🍗"
-        lowerTitle.contains("fish") || lowerTitle.contains("salmon") -> "🐟"
-        lowerTitle.contains("steak") || lowerTitle.contains("beef") -> "🥩"
-        lowerTitle.contains("burger") -> "🍔"
-        lowerTitle.contains("taco") || lowerTitle.contains("mexican") -> "🌮"
-        lowerTitle.contains("sushi") || lowerTitle.contains("japanese") -> "🍣"
-        lowerTitle.contains("curry") || lowerTitle.contains("indian") -> "🍛"
-        lowerTitle.contains("rice") -> "🍚"
-        lowerTitle.contains("egg") || lowerTitle.contains("breakfast") -> "🍳"
-        lowerTitle.contains("smoothie") || lowerTitle.contains("drink") -> "🥤"
-        lowerTitle.contains("coffee") -> "☕"
-        lowerTitle.contains("pie") -> "🥧"
-        lowerTitle.contains("sandwich") -> "🥪"
-        else -> "🍽️"
+        // Quick/Fast recipes
+        lowerTitle.contains("quick") || lowerTitle.contains("fast") || lowerTitle.contains("easy") -> Icons.Outlined.Bolt
+
+        // Healthy/Vegetarian recipes
+        lowerTitle.contains("salad") || lowerTitle.contains("healthy") || lowerTitle.contains("vegan") ||
+        lowerTitle.contains("vegetarian") || lowerTitle.contains("green") -> Icons.Outlined.Eco
+
+        // Soups and stews
+        lowerTitle.contains("soup") || lowerTitle.contains("stew") || lowerTitle.contains("broth") ||
+        lowerTitle.contains("chowder") -> Icons.Outlined.SoupKitchen
+
+        // Grilled/BBQ/Spicy
+        lowerTitle.contains("grill") || lowerTitle.contains("bbq") || lowerTitle.contains("spicy") ||
+        lowerTitle.contains("hot") || lowerTitle.contains("fire") -> Icons.Outlined.LocalFireDepartment
+
+        // Asian/Rice dishes
+        lowerTitle.contains("rice") || lowerTitle.contains("asian") || lowerTitle.contains("chinese") ||
+        lowerTitle.contains("japanese") || lowerTitle.contains("korean") || lowerTitle.contains("thai") ||
+        lowerTitle.contains("sushi") || lowerTitle.contains("curry") -> Icons.Outlined.RiceBowl
+
+        // Coffee/Drinks
+        lowerTitle.contains("coffee") || lowerTitle.contains("tea") || lowerTitle.contains("drink") ||
+        lowerTitle.contains("smoothie") || lowerTitle.contains("latte") -> Icons.Outlined.LocalCafe
+
+        // Timed recipes (baking, slow cook)
+        lowerTitle.contains("bake") || lowerTitle.contains("slow") || lowerTitle.contains("roast") ||
+        lowerTitle.contains("oven") -> Icons.Outlined.Timer
+
+        // Fancy/Special occasion
+        lowerTitle.contains("special") || lowerTitle.contains("fancy") || lowerTitle.contains("gourmet") ||
+        lowerTitle.contains("dinner") || lowerTitle.contains("party") -> Icons.Outlined.RestaurantMenu
+
+        // Pasta/Italian
+        lowerTitle.contains("pasta") || lowerTitle.contains("italian") || lowerTitle.contains("pizza") ||
+        lowerTitle.contains("spaghetti") -> Icons.Outlined.LocalDining
+
+        // Default: generic restaurant icon
+        else -> Icons.Outlined.Restaurant
     }
 }
 
@@ -396,17 +424,19 @@ private fun RecipeCard(
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Emoji icon
+        // Recipe icon
         Box(
             modifier = Modifier
                 .size(52.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(SurfaceLight),
+                .background(AccentAmberDim.copy(alpha = 0.25f)),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = getRecipeEmoji(recipe.title),
-                fontSize = 24.sp
+            Icon(
+                imageVector = getRecipeIcon(recipe.title),
+                contentDescription = null,
+                tint = AccentAmber,
+                modifier = Modifier.size(26.dp)
             )
         }
 
